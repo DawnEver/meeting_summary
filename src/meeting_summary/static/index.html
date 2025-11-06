@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Meeting Toolkit (Video ➜ Audio ➜ Transcript ➜ Summary)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script defer src="/static/app.js"></script>
+  <style>
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif; margin: 0; padding: 1.5rem; background:#0f172a; color:#e2e8f0; }
+    h1 { margin:0 0 .25rem; font-size:1.75rem; }
+    p.subtitle { margin:.25rem 0 1.25rem; color:#94a3b8; }
+    main { max-width:1100px; margin:0 auto; }
+    section { background:#1e293b; border:1px solid #334155; border-radius:14px; padding:1.25rem 1.25rem 1.6rem; margin-bottom:1.2rem; box-shadow:0 4px 12px -4px rgba(0,0,0,.4); }
+    section h2 { margin-top:0; font-size:1.2rem; letter-spacing:.5px; }
+    label { font-weight:600; margin-top:.75rem; display:block; }
+    input[type=file],input[type=text],input[type=number],select,textarea { width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; color:#e2e8f0; padding:.7rem .8rem; border-radius:10px; font-size:.95rem; }
+    textarea { min-height:170px; resize:vertical; font-family: ui-monospace,Consolas,"Fira Code",monospace; line-height:1.4; }
+    .row { display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end; }
+    button { cursor:pointer; border:none; background:linear-gradient(135deg,#38bdf8,#6366f1); color:#0f172a; font-weight:600; padding:.75rem 1.25rem; border-radius:999px; font-size:.9rem; box-shadow:0 3px 8px -3px rgba(56,189,248,.4); display:inline-flex; align-items:center; gap:.4rem; }
+    button.secondary { background:#334155; color:#e2e8f0; box-shadow:none; }
+    button:active { transform:scale(.97); }
+    .hint { font-size:.7rem; color:#64748b; margin-top:.25rem; }
+    .output, .pill { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:.85rem .9rem; font-size:.85rem; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .output { min-height:60px; }
+    .mono { font-family: ui-monospace,Consolas,"Fira Code",monospace; }
+    a { color:#38bdf8; text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    footer { text-align:center; font-size:.7rem; color:#64748b; margin:2rem 0 .5rem; }
+    .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:.75rem; }
+    .lang-switch { display:flex; justify-content:flex-end; gap:.5rem; margin:.25rem 0 1rem; }
+    @media (max-width:760px){ section { padding:1.05rem 1.05rem 1.4rem; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="lang-switch">
+      <button class="secondary" id="btnToZH" aria-label="切换到中文界面">中文</button>
+    </div>
+    <h1>Meeting Toolkit</h1>
+    <p class="subtitle">Three steps: Video➜Audio (downloadable) ➜ Transcript ➜ Summary. Plus one-click pipeline with progress.</p>
+  </header>
+
+  <section id="sec-video-audio">
+    <h2>① Video ➜ Audio</h2>
+    <label>Select a video file</label>
+    <input type="file" id="videoFile" accept="video/*" />
+    <div class="row">
+      <div style="flex:1; min-width:140px;">
+        <label>(Outputs WAV only, reusing current pipeline)</label>
+        <div class="hint">Server calls ffmpeg to extract 16k mono WAV.</div>
+      </div>
+      <div style="display:flex; align-items:flex-end; gap:.6rem;">
+        <button id="btnVideo2Audio">Convert to Audio</button>
+      </div>
+    </div>
+    <div id="audioResult" class="hint" style="margin-top:.75rem"></div>
+  </section>
+
+  <section id="sec-audio-transcript">
+    <h2>② Audio ➜ Transcript</h2>
+    <label>Choose audio (or use audio_id from step 1)</label>
+    <input type="file" id="audioFile" accept="audio/wav" />
+    <div class="row">
+      <input type="text" id="audioId" placeholder="Optional: audio_id from step 1" />
+      <button id="btnAudio2Text">Transcribe</button>
+    </div>
+    <label style="margin-top:.7rem">Transcript</label>
+    <textarea id="transcript" placeholder="Transcript will appear here"></textarea>
+  </section>
+
+  <section id="sec-transcript-summary">
+    <h2>③ Transcript ➜ Summary</h2>
+    <label>Paste or type Transcript</label>
+    <textarea id="transcriptForSummary" placeholder="You can copy from step 2"></textarea>
+    <div class="grid2" style="margin-top:.5rem;">
+      <div>
+        <label>Ollama Model</label>
+        <input type="text" id="model" value="qwen3:30b-a3b" />
+      </div>
+      <div>
+        <label>Context Length (0 = no chunking)</label>
+        <input type="number" id="ctxLen" value="0" min="0" />
+      </div>
+      <div style="grid-column:1/-1;">
+        <label>Extra Prompt (optional)</label>
+        <input type="text" id="extraPrompt" placeholder="e.g., Emphasize decisions and next steps" />
+      </div>
+    </div>
+    <div class="row" style="margin-top:.7rem;">
+      <button id="btnSummarize">Generate Summary</button>
+      <button class="secondary" id="btnCopyFromS2">Copy from step 2</button>
+    </div>
+    <label style="margin-top:.75rem">Summary</label>
+    <div id="summary" class="output"></div>
+  </section>
+
+  <section id="sec-pipeline">
+    <h2>One click: Video ➜ Summary</h2>
+    <label>Select a video file</label>
+    <input type="file" id="videoAll" accept="video/*" />
+    <div class="grid2" style="margin-top:.6rem;">
+      <div>
+        <label>Whisper Model</label>
+        <input type="text" id="whisperModelAll" value="turbo" />
+      </div>
+      <div>
+        <label>Ollama Model</label>
+        <input type="text" id="modelAll" value="qwen3:30b-a3b" />
+      </div>
+      <div>
+        <label>Context Length (0 = no chunking)</label>
+        <input type="number" id="ctxLenAll" value="0" min="0" />
+      </div>
+      <div style="grid-column:1/-1;">
+        <label>Extra Prompt</label>
+        <input type="text" id="extraPromptAll" placeholder="e.g., Organize by topics" />
+      </div>
+    </div>
+    <div class="row" style="margin-top:.8rem; gap:.5rem;">
+      <button class="Primary" id="btnOneClickStream">One Click Run</button>
+    </div>
+    <div id="pipelineAudioLink" class="hint" style="margin-top:.6rem"></div>
+    <div id="pipelineLog" class="output" style="margin-top:.6rem; min-height: 40px;"></div>
+    <label style="margin-top:.6rem">Transcript</label>
+    <div id="pipelineTranscript" class="output"></div>
+    <label style="margin-top:.6rem">Summary</label>
+    <div id="pipelineSummary" class="output"></div>
+  </section>
+
+  <footer>Run: <code>python -m meeting_summary.web</code> at <code>http://localhost:8000</code> | 中文界面: <a href="/">/</a></footer>
+</main>
+
+<script>
+// Language toggle + localized strings + init shared script
+(function(){
+  try { localStorage.setItem('lang','en'); } catch(_) {}
+  const btn = document.getElementById('btnToZH');
+  if (btn) btn.addEventListener('click', () => {
+    try { localStorage.setItem('lang','zh'); } catch(_) {}
+    const url = new URL(window.location.origin + '/');
+    url.searchParams.set('lang','zh');
+    window.location.href = url.toString();
+  });
+  const strings = {
+    alertChooseVideo: 'Please choose a video',
+    convertingText: 'Converting...',
+    audioIdLabel: 'audio_id',
+    downloadLabel: 'Download',
+    errorPrefix: 'Error:',
+    chooseAudioOrIdAlert: 'Choose audio or provide audio_id',
+    transcribingText: 'Transcribing...',
+    transcriptEmptyAlert: 'Transcript is required',
+    summarizingText: 'Generating...',
+    startingText: 'Starting...',
+    jobStartedPrefix: '[info] Job started:',
+    connectionLostText: 'connection lost'
+  };
+  document.addEventListener('DOMContentLoaded', function(){
+    if (window.initMeetingApp && window.initMeetingApp.initApp) {
+      window.initMeetingApp.initApp(strings);
+      return;
+    }
+    // fallback: poll briefly in case app.js is still loading
+    let tries = 0;
+    const t = setInterval(()=>{
+      if (window.initMeetingApp && window.initMeetingApp.initApp) {
+        clearInterval(t);
+        window.initMeetingApp.initApp(strings);
+      } else if (++tries > 40) { clearInterval(t); }
+    }, 100);
+  });
+})();
+</script>
+</body>
+</html>

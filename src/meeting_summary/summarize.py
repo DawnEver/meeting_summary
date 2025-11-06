@@ -21,7 +21,11 @@ def build_ollama_prompt(transcript_text: str, extra_prompt: str | None = None) -
     ]
 
 
-def _request_summary(chunk_text: str, ollama_model: str, extra_prompt: str | None = None) -> str | None:
+def _request_summary(
+    chunk_text: str,
+    ollama_model: str,
+    extra_prompt: str | None = None,
+):
     messages = build_ollama_prompt(chunk_text, extra_prompt)
     try:
         response = completion(model='ollama/' + ollama_model, messages=messages, stream=False)
@@ -41,6 +45,43 @@ def _split_transcript(transcript_text: str, context_length: int) -> Iterable[str
         yield transcript_text[start : start + step]
 
 
+def generate_summary_text(
+    transcript_text: str,
+    *,
+    ollama_model: str,
+    context_length: int | None = None,
+    extra_prompt: str | None = None,
+    log_progress: bool = True,
+) -> str | None:
+    """Return a Markdown summary string for the provided transcript."""
+    if context_length and context_length > 0 and len(transcript_text) > context_length:
+        chunks = list(_split_transcript(transcript_text, context_length))
+    else:
+        chunks = [transcript_text]
+
+    summaries: list[str] = []
+    total = len(chunks)
+    for index, chunk in enumerate(chunks, start=1):
+        if total > 1 and log_progress:
+            print(f'Summarizing chunk {index}/{total} (length={len(chunk)})...')
+        chunk_summary = _request_summary(chunk, ollama_model=ollama_model, extra_prompt=extra_prompt)
+        if chunk_summary is None:
+            if log_progress:
+                print(f'Skipped chunk {index} due to empty response')
+            continue
+        summaries.append(chunk_summary)
+
+    if not summaries:
+        if log_progress:
+            print('No summary generated: all requests failed.')
+        return None
+
+    if len(summaries) == 1:
+        return summaries[0]
+
+    return '\n\n'.join(f'### Segment {idx}\n\n{summary}' for idx, summary in enumerate(summaries, start=1))
+
+
 def summarize_with_ollama(
     transcript_text: str,
     outdir: Path,
@@ -50,30 +91,15 @@ def summarize_with_ollama(
     extra_prompt: str | None = None,
 ):
     """Summarize transcript text using Ollama and save outputs to outdir."""
-    if context_length and context_length > 0 and len(transcript_text) > context_length:
-        chunks = list(_split_transcript(transcript_text, context_length))
-    else:
-        chunks = [transcript_text]
-
-    summaries: list[str] = []
-    total = len(chunks)
-    for index, chunk in enumerate(chunks, start=1):
-        if total > 1:
-            print(f'Summarizing chunk {index}/{total} (length={len(chunk)})...')
-        chunk_summary = _request_summary(chunk, ollama_model=ollama_model, extra_prompt=extra_prompt)
-        if chunk_summary is None:
-            print(f'Skipped chunk {index} due to empty response')
-            continue
-        summaries.append(chunk_summary)
-
-    if not summaries:
-        print('No summary generated: all requests failed.')
+    final_summary = generate_summary_text(
+        transcript_text,
+        ollama_model=ollama_model,
+        context_length=context_length,
+        extra_prompt=extra_prompt,
+        log_progress=True,
+    )
+    if final_summary is None:
         return
-
-    if len(summaries) == 1:
-        final_summary = summaries[0]
-    else:
-        final_summary = '\n\n'.join(f'### Segment {idx}\n\n{summary}' for idx, summary in enumerate(summaries, start=1))
 
     save_text(outdir / (stem + '.summary.md'), final_summary)
 

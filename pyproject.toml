@@ -20,12 +20,17 @@ maintainers = [
 dependencies = [
     "openai-whisper>=20250625",
     "requests>=2.32.5",
+    'litellm>=1.79.1'
+
 ]
 [project.optional-dependencies]
 dev = [
     'commitizen',
     "pre-commit",
     "ruff",
+]
+web = [
+    "flask>=3.1.2",
 ]
 
 # ===================

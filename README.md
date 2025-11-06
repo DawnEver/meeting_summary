@@ -4,7 +4,7 @@
 Meeting Summary extracts speech from a recorded meeting, generates a Whisper transcript, and produces a Markdown summary with a local Ollama model. Each stage is available as a standalone CLI so you can run the complete workflow or plug specific pieces into an existing pipeline.
 
 ## Features
-- End-to-end video → audio → transcript → summary command.
+- End-to-end video -> audio -> transcript -> summary command.
 - Whisper transcription with optional language hints and SRT export.
 - Ollama-powered summarization with user-supplied prompt additions.
 - Automatic transcript chunking when model context length is limited.
@@ -36,7 +36,7 @@ Key options for the pipeline command:
 | Flag | Description |
 | --- | --- |
 | `-o/--outdir` | Destination directory for audio, transcripts, and summaries. |
-| `-w/--whisper-model` | Whisper checkpoint (`tiny`, `base`, `small`, `medium`, `large`, `turbo`, …). |
+| `-w/--whisper-model` | Whisper checkpoint (`tiny`, `base`, `small`, `medium`, `large`, `turbo`, ...). |
 | `-l/--language` | Optional language hint passed to Whisper. |
 | `-m/--ollama-model` | Local Ollama model name (prefixed automatically with `ollama/`). |
 | `-c/--context-length` | Maximum transcript characters per summarization request. Use `0` to disable chunking. |
@@ -69,6 +69,66 @@ python -m meeting_summary.summarize path/to/meeting.transcript.txt -o output -m 
 ```
 
 When chunking is enabled (`-c/--context-length` > 0), the transcript is split into character ranges sized to fit the requested context window. Each chunk is summarized independently, and the final Markdown file combines all segments with numbered headings.
+
+## Web Service (Flask UI: Video ➜ Audio ➜ Transcript ➜ Summary)
+
+The project now ships with a Flask web interface offering:
+
+1. Upload video ➜ server extracts mono 16k WAV (FFmpeg).
+2. Upload/choose WAV ➜ Whisper transcript.
+3. Paste/auto-fill transcript ➜ Ollama summary (chunking optional).
+4. One-click pipeline (video ➜ audio ➜ transcript ➜ summary), with optional Server-Sent Events (SSE) progress stream.
+
+### Run (Windows CMD examples)
+
+```cmd
+python -m meeting_summary.web
+```
+
+Visit: `http://localhost:8000/` (English UI by default). Chinese UI is at `/?lang=zh` or via the language toggle button.
+
+### Language Negotiation
+Root (`/`) chooses language in priority order:
+1. `?lang=zh|en` query (sets `lang` cookie)
+2. `lang` cookie value
+3. `Accept-Language` header (any `zh*` ➜ Chinese)
+4. Default English
+
+Front-end toggles use `/?lang=en` or `/?lang=zh` to persist preference.
+
+### Key Endpoints
+| Method | Path | Purpose |
+| ------ | ---- | ------- |
+| POST | `/api/video-to-audio` | Upload a video file, receive `{audio_id, download_url}` for generated WAV. |
+| GET  | `/api/download/audio/<audio_id>` | Download the extracted audio. |
+| POST | `/api/audio-to-transcript` | Upload WAV or provide `audio_id`; returns `{transcript}`. |
+| POST | `/api/summarize` | JSON body with `transcript`, optional `ollama_model`, `context_length`, `extra_prompt`; returns `{summary}`. |
+| POST | `/api/pipeline` | Blocking one-click pipeline; returns `{audio_id, download_url, transcript, summary}`. |
+| POST | `/api/pipeline/start` | Start async pipeline job; returns `{job_id}`. |
+| GET  | `/api/pipeline/events/<job_id>` | SSE stream of progress events (`info/step/ok/error/done`). |
+| GET  | `/api/pipeline/result/<job_id>` | Poll for final result or status (`pending|error|done`). |
+
+### SSE Progress Example
+
+```bash
+curl -N http://localhost:8000/api/pipeline/events/<job_id>
+```
+
+Each message is a JSON object preceded by `data: `. The final event has `type=done` with either `result` or `error`.
+
+### Example (One-Click Pipeline)
+
+```bash
+curl -F "video=@meeting.mp4" -F "whisper_model=turbo" -F "ollama_model=qwen3:30b-a3b" \
+	-F "context_length=0" -F "extra_prompt=Highlight key decisions" \
+	http://localhost:8000/api/pipeline
+```
+
+### Notes
+- Audio files are stored under `output/`; uploads under `output/uploads/`.
+- SSE keeps the HTTP connection open—ensure reverse proxies disable buffering (e.g., `X-Accel-Buffering: no`).
+- For large deployments add rate limiting, authentication and a job cleanup routine.
+- FastAPI code was replaced by Flask; you can re-enable FastAPI by restoring the former `web.py` if needed.
 
 ## Extra Prompting Tips
 - Keep `--extra-prompt` focused; short instructions tend to guide the model better than long essays.

@@ -7,8 +7,8 @@ install:
 
 .PHONY: install-dev
 install-dev:
-	pip install -U pip wheel
-	pip install -e ".[dev]"
+	python ./scripts/cuda-torch.py --install
+	uv pip install -e ".[dev,web]"
 	python -m pre-commit install
 	python -m pre-commit autoupdate
 
