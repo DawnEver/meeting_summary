@@ -6,13 +6,26 @@ import whisper
 from .utils import save_text
 
 
-def segments_to_srt(segments: list[dict]) -> str:
-    """Convert Whisper segments to SRT formatted string."""
+def segments_to_srt(segments: list[dict], *, simple_time: bool = False) -> str:
+    """Convert Whisper segments to SRT formatted string.
+
+    Parameters
+    ----------
+    segments : list[dict]
+        Whisper output segments.
+    simple_time : bool, default False
+        If True, emit timestamps as HH:MM:SS (drop milliseconds) for easier human reading.
+        Note: Standard SRT specification requires milliseconds (HH:MM:SS,mmm). Some players
+        may reject simplified timestamps.
+
+    """
 
     def fmt_time(t: float) -> str:
         hours = int(t // 3600)
         minutes = int((t % 3600) // 60)
         seconds = int(t % 60)
+        if simple_time:
+            return f'{hours:02d}:{minutes:02d}:{seconds:02d}'
         milliseconds = int((t - int(t)) * 1000)
         return f'{hours:02d}:{minutes:02d}:{seconds:02d},{milliseconds:03d}'
 
@@ -22,6 +35,7 @@ def segments_to_srt(segments: list[dict]) -> str:
         end = fmt_time(float(seg.get('end', 0)))
         text = seg.get('text', '').strip()
         lines.append(str(i))
+        # When simple_time, still keep arrow separator; SRT spec expects ms but we allow simplified.
         lines.append(f'{start} --> {end}')
         lines.append(text)
         lines.append('')
@@ -35,6 +49,7 @@ def transcribe_audio(
     language: str | None = None,
     *,
     make_srt: bool = True,
+    simple_srt_time: bool = False,
 ) -> str:
     """Transcribe an audio file and persist transcript (and optional SRT).
 
@@ -65,7 +80,7 @@ def transcribe_audio(
                 if srt_path.exists():
                     print(f'[transcribe_audio] SRT already exists: {srt_path}')
                 else:
-                    srt = segments_to_srt(segments)
+                    srt = segments_to_srt(segments, simple_time=simple_srt_time)
                     save_text(srt_path, srt)
 
     print('[transcribe_audio] Finished ->', transcript_path)
@@ -79,6 +94,9 @@ def main() -> None:
     parser.add_argument('--whisper-model', default='turbo', help='Whisper model name')
     parser.add_argument('--language', default=None, help='Language hint for Whisper (e.g. en, zh)')
     parser.add_argument('--no-srt', action='store_true', help='Disable SRT generation')
+    parser.add_argument(
+        '--simple-srt-time', action='store_true', help='Use HH:MM:SS (no milliseconds) in SRT timestamps'
+    )
     args = parser.parse_args()
 
     audio_path = Path(args.audio)
@@ -89,6 +107,7 @@ def main() -> None:
         whisper_model=args.whisper_model,
         language=args.language,
         make_srt=not args.no_srt,
+        simple_srt_time=args.simple_srt_time,
     )
 
 
