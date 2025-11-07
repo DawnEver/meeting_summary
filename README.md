@@ -1,141 +1,122 @@
-# Meeting Summary Pipeline (Video -> Whisper -> Ollama)
+# Meeting Summary (Video → Whisper → Ollama)
 
-## Overview
-Meeting Summary extracts speech from a recorded meeting, generates a Whisper transcript, and produces a Markdown summary with a local Ollama model. Each stage is available as a standalone CLI so you can run the complete workflow or plug specific pieces into an existing pipeline.
+Lightweight toolkit to convert meeting videos into transcripts and structured Markdown summaries using FFmpeg, Whisper, and a local Ollama model. Provides CLI modules for each stage and a simple Flask web UI for one-click or programmatic pipelines.
 
-## Features
-- End-to-end video -> audio -> transcript -> summary command.
-- Whisper transcription with optional language hints and SRT export.
-- Ollama-powered summarization with user-supplied prompt additions.
-- Automatic transcript chunking when model context length is limited.
-- Simple output layout under `output/` for quick inspection and downstream automation.
+## Key features
+- End-to-end pipeline: video → audio (FFmpeg) → transcript (Whisper) → summary (Ollama).
+- Each stage usable independently (extract, transcribe, summarize).
+- Optional Whisper language hint and SRT export when segment data is available.
+- Automatic chunking of long transcripts and merge into a single Markdown summary.
+- Outputs placed under a single `output/` directory. Optional Flask web UI with SSE progress.
+
+<p align="center">
+	<img src="readme-img/en-empty.png" alt="" style="max-width:400px; height:auto; margin:12px 0;" />
+</p>
+
 
 ## Requirements
-- Python 3.13 or newer.
-- [ffmpeg](https://ffmpeg.org/) available in your PATH for audio extraction.
-- [Ollama](https://ollama.com/) running locally with the target model pulled (default: `qwen3:30b-a3b`).
-- Sufficient GPU/CPU resources for the chosen Whisper model.
+- Python 3.13+
+- [FFmpeg](https://ffmpeg.org/download.html) available on PATH
+- [Ollama](https://ollama.com/download) running locally with the desired model pulled (default example: `qwen3:30b-a3b`)
+- Choose an appropriate Whisper model for your hardware (CPU/GPU)
 
-Install Python dependencies in editable mode:
+## Installation
 
-```bash
-pip install -e .[dev]
+Install package in editable mode:
+
+Windows CMD:
+```cmd
+pip install -e .
+REM Web UI (optional)
+pip install -e ".[web]"
+REM Dev tools (optional)
+pip install -e ".[dev]"
 ```
 
-> Replace `pip` with `uv`, `pipx runpip`, or your preferred tool if needed.
+Or use uv as alternatives:
+```bash
+uv pip install -e ".[dev,web]"
+```
 
-## Quick Start
-Run the full workflow on a meeting video:
+## Quick start — full pipeline
 
+Process a meeting video end-to-end:
 ```bash
 python -m meeting_summary path/to/meeting.mp4 -o output -w turbo -c 8000 -p "Focus on decisions and owners"
 ```
 
-Key options for the pipeline command:
+Important options:
+- `-o, --outdir` : output directory for audio, transcripts, summaries
+- `-w, --whisper-model` : Whisper checkpoint (e.g., tiny, base, small, medium, large, turbo)
+- `-l, --language` : optional language hint for Whisper (e.g., en, zh)
+- `-m, --ollama-model` : local Ollama model name (prefixed internally with `ollama/`)
+- `-c, --context-length` : max characters per summarization request; set `0` to disable chunking
+- `-p, --extra-prompt` : extra instructions appended to the summarization prompt
 
-| Flag | Description |
-| --- | --- |
-| `-o/--outdir` | Destination directory for audio, transcripts, and summaries. |
-| `-w/--whisper-model` | Whisper checkpoint (`tiny`, `base`, `small`, `medium`, `large`, `turbo`, ...). |
-| `-l/--language` | Optional language hint passed to Whisper. |
-| `-m/--ollama-model` | Local Ollama model name (prefixed automatically with `ollama/`). |
-| `-c/--context-length` | Maximum transcript characters per summarization request. Use `0` to disable chunking. |
-| `-p/--extra-prompt` | Additional instructions appended to every summarization prompt. |
+Typical outputs under `output/`:
+- `<stem>.wav` — extracted mono audio
+- `<stem>.transcript.txt` — raw Whisper transcript
+- `<stem>.srt` — subtitles (if segment data exists)
+- `<stem>.summary.md` — final Markdown summary from Ollama
 
-Outputs land in `output/` (or the directory you passed with `-o`) and include:
+## Run individual stages
 
-- `<stem>.wav`: extracted mono audio.
-- `<stem>.transcript.txt`: raw Whisper transcript.
-- `<stem>.srt`: subtitle file when segment data is available.
-- `<stem>.summary.md`: Markdown summary from the Ollama model.
-
-## Running Individual Stages
-Extract only the audio track:
-
+Extract audio only:
 ```bash
 python -m meeting_summary.extract_audio path/to/meeting.mp4 -o output --samplerate 16000
 ```
 
-Transcribe existing audio:
-
+Transcribe existing WAV:
 ```bash
 python -m meeting_summary.transcribe path/to/meeting.wav -o output -w turbo -l en
 ```
 
-Summarize an existing transcript (supports chunking and custom prompts):
-
+Summarize an existing transcript (with optional chunking and extra prompt):
 ```bash
 python -m meeting_summary.summarize path/to/meeting.transcript.txt -o output -m qwen3:30b-a3b -c 6000 -p "Highlight risks"
 ```
 
-When chunking is enabled (`-c/--context-length` > 0), the transcript is split into character ranges sized to fit the requested context window. Each chunk is summarized independently, and the final Markdown file combines all segments with numbered headings.
+When `-c/--context-length > 0`, the transcript is split into chunks sized to fit the context window. Each chunk is summarized, then merged into a single Markdown file with section headings.
 
-## Web Service (Flask UI: Video ➜ Audio ➜ Transcript ➜ Summary)
+## Web service (Flask)
 
-The project now ships with a Flask web interface offering:
-
-1. Upload video ➜ server extracts mono 16k WAV (FFmpeg).
-2. Upload/choose WAV ➜ Whisper transcript.
-3. Paste/auto-fill transcript ➜ Ollama summary (chunking optional).
-4. One-click pipeline (video ➜ audio ➜ transcript ➜ summary), with optional Server-Sent Events (SSE) progress stream.
-
-### Run (Windows CMD examples)
-
-```cmd
+Start the web UI:
+```bash
 python -m meeting_summary.web
 ```
 
-Visit: `http://localhost:8000/` (English UI by default). Chinese UI is at `/?lang=zh` or via the language toggle button.
+Visit: http://localhost:8000/
 
-### Language Negotiation
-Root (`/`) chooses language in priority order:
-1. `?lang=zh|en` query (sets `lang` cookie)
-2. `lang` cookie value
-3. `Accept-Language` header (any `zh*` ➜ Chinese)
-4. Default English
+The root page serves an English UI by default. Language can be selected via `?lang=zh|en`, a cookie, or `Accept-Language`.
 
-Front-end toggles use `/?lang=en` or `/?lang=zh` to persist preference.
+Key API endpoints:
+- POST `/api/video-to-audio` — upload video, returns `{audio_id, download_url}`
+- GET `/api/download/audio/<audio_id>` — download extracted WAV
+- GET `/api/download/transcript/<audio_id>` — download transcript (if available)
+- GET `/api/download/srt/<audio_id>` — download SRT (if available)
+- POST `/api/audio-to-transcript` — upload WAV or reference `audio_id`; returns `{transcript}`
+- POST `/api/summarize` — JSON with `transcript`, optional `ollama_model`, `context_length`, `extra_prompt`; returns `{summary}`
+- POST `/api/pipeline` — blocking pipeline; returns `{audio_id, download_url, transcript, summary}`
+- POST `/api/pipeline/start` — start async pipeline; returns `{job_id}`
+- GET `/api/pipeline/events/<job_id>` — SSE stream of progress events (`info/step/ok/error/done`)
+- GET `/api/pipeline/result/<job_id>` — poll final result/status (`pending|error|done`)
 
-### Key Endpoints
-| Method | Path | Purpose |
-| ------ | ---- | ------- |
-| POST | `/api/video-to-audio` | Upload a video file, receive `{audio_id, download_url}` for generated WAV. |
-| GET  | `/api/download/audio/<audio_id>` | Download the extracted audio. |
-| POST | `/api/audio-to-transcript` | Upload WAV or provide `audio_id`; returns `{transcript}`. |
-| POST | `/api/summarize` | JSON body with `transcript`, optional `ollama_model`, `context_length`, `extra_prompt`; returns `{summary}`. |
-| POST | `/api/pipeline` | Blocking one-click pipeline; returns `{audio_id, download_url, transcript, summary}`. |
-| POST | `/api/pipeline/start` | Start async pipeline job; returns `{job_id}`. |
-| GET  | `/api/pipeline/events/<job_id>` | SSE stream of progress events (`info/step/ok/error/done`). |
-| GET  | `/api/pipeline/result/<job_id>` | Poll for final result or status (`pending|error|done`). |
-
-### SSE Progress Example
-
+SSE usage example:
 ```bash
 curl -N http://localhost:8000/api/pipeline/events/<job_id>
 ```
 
-Each message is a JSON object preceded by `data: `. The final event has `type=done` with either `result` or `error`.
+Notes:
+- Uploaded files and generated artifacts are stored under `output/` (uploads in `output/uploads/`).
+- For proper SSE behavior behind proxies, disable buffering (e.g., `X-Accel-Buffering: no`).
+- Add authentication, rate limiting, and job cleanup for production use.
 
-### Example (One-Click Pipeline)
-
-```bash
-curl -F "video=@meeting.mp4" -F "whisper_model=turbo" -F "ollama_model=qwen3:30b-a3b" \
-	-F "context_length=0" -F "extra_prompt=Highlight key decisions" \
-	http://localhost:8000/api/pipeline
-```
-
-### Notes
-- Audio files are stored under `output/`; uploads under `output/uploads/`.
-- SSE keeps the HTTP connection open—ensure reverse proxies disable buffering (e.g., `X-Accel-Buffering: no`).
-- For large deployments add rate limiting, authentication and a job cleanup routine.
-- FastAPI code was replaced by Flask; you can re-enable FastAPI by restoring the former `web.py` if needed.
-
-## Extra Prompting Tips
-- Keep `--extra-prompt` focused; short instructions tend to guide the model better than long essays.
-- Use chunking if you see context errors from Ollama or your model expects shorter inputs.
-- You can post-process the Markdown summary as part of CI/CD or import it into notes systems since the format is consistent.
+## Extra prompting tips
+- Keep `--extra-prompt` concise and focused for better summaries.
+- Enable chunking if you encounter context window limits or truncated outputs.
+- Post-process the generated Markdown in CI or import into note systems; format is stable.
 
 ## Development
-- Format and lint with [Ruff](https://docs.astral.sh/ruff/) if desired (`ruff check .`).
-- Scripts in `scripts/` (e.g., `run_workflow.py`) illustrate how to orchestrate the pipeline programmatically.
-- Contributions are welcome—open an issue or PR with proposed enhancements.
+- Optional linting/formatting with Ruff: `python -m ruff check .` and `python -m ruff format .`
+- Helper scripts in `scripts/` show programmatic orchestration of the pipeline.
+- Contributions welcome — open issues or PRs with improvements.

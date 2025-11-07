@@ -126,3 +126,7 @@ def main():
         context_length=args.context_length,
         extra_prompt=args.extra_prompt,
     )
+
+
+if __name__ == '__main__':
+    main()

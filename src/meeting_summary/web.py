@@ -166,9 +166,8 @@ def _run_pipeline_job(
         job.push('info', 'Starting pipeline: video ➜ audio ➜ transcript ➜ summary')
         # 1) video -> audio
         job.push('step', 'Extracting audio...')
-        extract_audio(video_path=video_path, outdir=_output_dir, audio_path=None)
-        audio_path = _audio_file_from_video(video_path)
-        if not audio_path.exists():
+        audio_path = extract_audio(video_path=video_path, outdir=_output_dir)
+        if not audio_path.exists():  # defensive, normally exists
             msg = 'Audio file missing after extraction'
             raise RuntimeError(msg)  # noqa: TRY301
         job.push('ok', f'Audio ready: {audio_path.name}')
@@ -197,6 +196,12 @@ def _run_pipeline_job(
         job.complete({
             'audio_id': audio_path.name,
             'download_url': f'/api/download/audio/{audio_path.name}',
+            'download_transcript_url': f'/api/download/transcript/{audio_path.name}'
+            if (_output_dir / f'{audio_path.stem}.transcript.txt').exists()
+            else None,
+            'download_srt_url': f'/api/download/srt/{audio_path.name}'
+            if (_output_dir / f'{audio_path.stem}.srt').exists()
+            else None,
             'transcript': transcript,
             'summary': summary,
         })
@@ -262,7 +267,7 @@ def index():  # type: ignore[override]
 def video_to_audio():  # type: ignore[override]
     video_path = _save_upload('video', _ALLOWED_VIDEO_EXT)
     try:
-        extract_audio(video_path=video_path, outdir=_output_dir, audio_path=None)
+        extract_audio(video_path=video_path, outdir=_output_dir)
     except Exception as e:
         abort(502, description=f'Audio extraction failed: {e}')
     audio_path = _audio_file_from_video(video_path)
@@ -287,6 +292,42 @@ def download_audio(audio_id: str):  # type: ignore[override]
     )
 
 
+@app.get('/api/download/transcript/<audio_id>')
+def download_transcript(audio_id: str):  # type: ignore[override]
+    # Map audio id to transcript file under output/
+    try:
+        audio_path = _validate_audio_id(audio_id)
+    except Exception:
+        abort(404, description='Audio not found')
+    transcript_path = _output_dir / f'{audio_path.stem}.transcript.txt'
+    if not transcript_path.exists():
+        abort(404, description='Transcript not found')
+    return send_file(
+        str(transcript_path),
+        as_attachment=True,
+        download_name=transcript_path.name,
+        mimetype='text/plain',
+    )
+
+
+@app.get('/api/download/srt/<audio_id>')
+def download_srt(audio_id: str):  # type: ignore[override]
+    # Map audio id to srt file under output/
+    try:
+        audio_path = _validate_audio_id(audio_id)
+    except Exception:
+        abort(404, description='Audio not found')
+    srt_path = _output_dir / f'{audio_path.stem}.srt'
+    if not srt_path.exists():
+        abort(404, description='SRT not found')
+    return send_file(
+        str(srt_path),
+        as_attachment=True,
+        download_name=srt_path.name,
+        mimetype='text/plain',
+    )
+
+
 @app.post('/api/audio-to-transcript')
 def audio_to_transcript():  # type: ignore[override]
     # Accept either uploaded audio OR existing audio_id referencing output dir
@@ -304,7 +345,17 @@ def audio_to_transcript():  # type: ignore[override]
         transcript = transcribe_audio(audio_path=audio_path, outdir=_output_dir, whisper_model='turbo', language=None)
     except Exception as e:
         abort(502, description=f'Transcription failed: {e}')
-    return jsonify({'transcript': transcript})
+    # Build download URLs for transcript and srt (if file exists)
+    stem = audio_path.stem
+    transcript_path = _output_dir / f'{stem}.transcript.txt'
+    srt_path = _output_dir / f'{stem}.srt'
+    resp = {
+        'transcript': transcript,
+        'audio_id': audio_path.name,
+        'download_transcript_url': f'/api/download/transcript/{audio_path.name}' if transcript_path.exists() else None,
+        'download_srt_url': f'/api/download/srt/{audio_path.name}' if srt_path.exists() else None,
+    }
+    return jsonify(resp)
 
 
 @app.post('/api/summarize')
@@ -329,6 +380,7 @@ def summarize():  # type: ignore[override]
         abort(502, description=f'Summary generation failed: {e}')
     if not summary:
         abort(502, description='Empty summary')
+    # return summary (markdown) as well as optional downloadable path info
     return jsonify({'summary': summary})
 
 
@@ -340,7 +392,7 @@ def pipeline():  # type: ignore[override]
     video_path = _save_upload('video', _ALLOWED_VIDEO_EXT)
     # 1) video -> audio
     try:
-        extract_audio(video_path=video_path, outdir=_output_dir, audio_path=None)
+        extract_audio(video_path=video_path, outdir=_output_dir)
     except Exception as e:
         abort(502, description=f'Audio extraction failed: {e}')
     audio_path = _audio_file_from_video(video_path)
@@ -379,6 +431,12 @@ def pipeline():  # type: ignore[override]
     return jsonify({
         'audio_id': audio_id,
         'download_url': f'/api/download/audio/{audio_id}',
+        'download_transcript_url': f'/api/download/transcript/{audio_id}'
+        if (_output_dir / f'{Path(audio_id).stem}.transcript.txt').exists()
+        else None,
+        'download_srt_url': f'/api/download/srt/{audio_id}'
+        if (_output_dir / f'{Path(audio_id).stem}.srt').exists()
+        else None,
         'transcript': transcript,
         'summary': summary,
     })
@@ -420,6 +478,7 @@ def pipeline_events(job_id: str):  # type: ignore[override]
                     idx += 1
                     yield f'data: {json.dumps(evt, ensure_ascii=False)}\n\n'
                 if job.done:
+                    # When finishing, include any download urls in the done payload
                     payload = {'type': 'done', 'result': job.result, 'error': job.error, 'ts': time.time()}
                     yield f'data: {json.dumps(payload, ensure_ascii=False)}\n\n'
                     return

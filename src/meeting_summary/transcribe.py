@@ -28,50 +28,69 @@ def segments_to_srt(segments: list[dict]) -> str:
     return '\n'.join(lines)
 
 
-def transcribe_audio(audio_path: Path, outdir: Path, whisper_model: str, language: str | None = None):
-    """Transcribe audio file and save outputs to outdir."""
+def transcribe_audio(
+    audio_path: Path,
+    outdir: Path,
+    whisper_model: str,
+    language: str | None = None,
+    *,
+    make_srt: bool = True,
+) -> str:
+    """Transcribe an audio file and persist transcript (and optional SRT).
+
+    Returns the raw transcript text. If a previous transcript exists it is reused.
+    """
     if not audio_path.exists():
         msg = f'Audio not found: {audio_path}'
         raise SystemExit(msg)
 
     transcript_path = outdir / (audio_path.stem + '.transcript.txt')
+    outdir.mkdir(parents=True, exist_ok=True)
 
     if transcript_path.exists():
-        print(f'Transcript already exists at {transcript_path}, loading.')
+        print(f'[transcribe_audio] Reusing existing transcript: {transcript_path}')
         transcript_text = transcript_path.read_text(encoding='utf-8')
-
     else:
-        print(f"Loading Whisper model '{whisper_model}'...")
+        print(f"[transcribe_audio] Loading Whisper model '{whisper_model}' ...")
         model = whisper.load_model(whisper_model)
-        print('Transcribing...')
+        print('[transcribe_audio] Transcribing ...')
         res = model.transcribe(str(audio_path), language=language)
-
         transcript_text = res.get('text') if isinstance(res, dict) else str(res)
         save_text(transcript_path, transcript_text)
-        segments = res.get('segments') if isinstance(res, dict) else None
 
-        if segments:
-            srt_path = outdir / (audio_path.stem + '.srt')
-            if srt_path.exists():
-                print(f'SRT already exists at {srt_path}, skipping.')
-            else:
-                srt = segments_to_srt(segments)
-                save_text(srt_path, srt)
+        if make_srt and isinstance(res, dict):
+            segments = res.get('segments')
+            if segments:
+                srt_path = outdir / (audio_path.stem + '.srt')
+                if srt_path.exists():
+                    print(f'[transcribe_audio] SRT already exists: {srt_path}')
+                else:
+                    srt = segments_to_srt(segments)
+                    save_text(srt_path, srt)
 
-    print('Transcription finished. Transcript:', transcript_path)
+    print('[transcribe_audio] Finished ->', transcript_path)
     return transcript_text
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description='Transcribe audio using Whisper')
     parser.add_argument('audio', help='Path to audio file (wav)')
-    parser.add_argument('--outdir', default='output', help='Directory to save transcript')
+    parser.add_argument('--outdir', default='output', help='Directory to save transcript/SRT')
     parser.add_argument('--whisper-model', default='turbo', help='Whisper model name')
-    parser.add_argument('--language', default=None, help='Language hint for Whisper')
-    parser.add_argument('--make-srt', action='store_true', help='Generate SRT from segments')
+    parser.add_argument('--language', default=None, help='Language hint for Whisper (e.g. en, zh)')
+    parser.add_argument('--no-srt', action='store_true', help='Disable SRT generation')
     args = parser.parse_args()
 
     audio_path = Path(args.audio)
     outdir = Path(args.outdir)
-    outdir.mkdir(parents=True, exist_ok=True)
-    transcribe_audio(audio_path=audio_path, outdir=outdir, whisper_model=args.whisper_model, language=args.language)
+    transcribe_audio(
+        audio_path=audio_path,
+        outdir=outdir,
+        whisper_model=args.whisper_model,
+        language=args.language,
+        make_srt=not args.no_srt,
+    )
+
+
+if __name__ == '__main__':
+    main()

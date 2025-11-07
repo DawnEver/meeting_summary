@@ -36,17 +36,12 @@ def meeting_summary(
         raise SystemExit(2)
 
     stem = video_path.stem
-    audio_path = outdir / (stem + '.wav')
-
     # Step 1: extract audio
-    extract_audio(video_path=video_path, outdir=outdir, audio_path=audio_path)
+    audio_path = extract_audio(video_path=video_path, outdir=outdir)
 
     # Step 2: transcribe
     transcript_text = transcribe_audio(
-        audio_path=audio_path,
-        outdir=outdir,
-        whisper_model=whisper_model,
-        language=language,
+        audio_path=audio_path, outdir=outdir, whisper_model=whisper_model, language=language
     )
     # Step 3: summarize with Ollama
     summarize_with_ollama(
@@ -90,3 +85,7 @@ def main():
         context_length=args.context_length,
         extra_prompt=args.extra_prompt,
     )
+
+
+if __name__ == '__main__':
+    main()

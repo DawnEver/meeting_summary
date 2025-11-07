@@ -4,6 +4,8 @@
   <meta charset="utf-8" />
   <title>Meeting Toolkit (Video ➜ Audio ➜ Transcript ➜ Summary)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script src="/static/marked-loader.js"></script>
+  <script src="/static/dompurify-loader.js"></script>
   <script defer src="/static/app.js"></script>
   <style>
     :root { color-scheme: light dark; }
@@ -68,6 +70,10 @@
     </div>
     <label style="margin-top:.7rem">Transcript</label>
     <textarea id="transcript" placeholder="Transcript will appear here"></textarea>
+    <div id="transcriptActions" style="margin-top:.5rem; display:flex; gap:.5rem;">
+      <a id="aDownloadTranscript" class="secondary" style="display:none; padding:.5rem .75rem;" download>Download TXT</a>
+      <a id="aDownloadSRT" class="secondary" style="display:none; padding:.5rem .75rem;" download>Download SRT</a>
+    </div>
   </section>
 
   <section id="sec-transcript-summary">
@@ -91,6 +97,8 @@
     <div class="row" style="margin-top:.7rem;">
       <button id="btnSummarize">Generate Summary</button>
       <button class="secondary" id="btnCopyFromS2">Copy from step 2</button>
+      <button class="secondary" id="btnCopySummary" style="margin-left:.5rem;">Copy Summary</button>
+      <button class="secondary" id="btnDownloadSummary" style="margin-left:.25rem;">Download MD</button>
     </div>
     <label style="margin-top:.75rem">Summary</label>
     <div id="summary" class="output"></div>
@@ -122,14 +130,19 @@
       <button class="Primary" id="btnOneClickStream">One Click Run</button>
     </div>
     <div id="pipelineAudioLink" class="hint" style="margin-top:.6rem"></div>
+    <div id="pipelineDownloadLinks" style="margin-top:.5rem; display:flex; gap:.5rem;"></div>
     <div id="pipelineLog" class="output" style="margin-top:.6rem; min-height: 40px;"></div>
     <label style="margin-top:.6rem">Transcript</label>
     <div id="pipelineTranscript" class="output"></div>
+    <div style="margin-top:.4rem; display:flex; gap:.5rem;">
+      <button class="secondary" id="btnCopyPipelineSummary">Copy Summary</button>
+      <button class="secondary" id="btnDownloadPipelineSummary">Download MD</button>
+    </div>
     <label style="margin-top:.6rem">Summary</label>
     <div id="pipelineSummary" class="output"></div>
   </section>
 
-  <footer>Run: <code>python -m meeting_summary.web</code> at <code>http://localhost:8000</code> | 中文界面: <a href="/">/</a></footer>
+  <footer>Mingyang Bao | mingyangbob@gmail.com<br/> <a href="https://github.com/DawnEver/meeting_summary">github.com/DawnEver/meeting_summary</a></footer>
 </main>
 
 <script>

@@ -4,10 +4,11 @@ import subprocess
 from pathlib import Path
 
 
-def extract_audio(video_path: Path, outdir: Path, audio_path: Path, sample_rate: int = 16000):
-    """Extract audio using ffmpeg to WAV (mono).
+def extract_audio(video_path: Path, outdir: Path, *, sample_rate: int = 16000) -> Path:
+    """Extract audio from a video into a mono WAV file.
 
-    Skips if ffmpeg fails (raises subprocess.CalledProcessError).
+    Returns the path to the generated audio file; if it already exists it is reused.
+    Raises SystemExit if the input video is missing or ffmpeg fails (subprocess will raise).
     """
     video = Path(video_path)
     outdir = Path(outdir)
@@ -19,8 +20,8 @@ def extract_audio(video_path: Path, outdir: Path, audio_path: Path, sample_rate:
 
     audio_path = outdir / (video.stem + '.wav')
     if audio_path.exists():
-        print(f'Audio already exists at {audio_path}, skipping extraction.')
-        return
+        print(f'[extract_audio] Reusing existing audio: {audio_path}')
+        return audio_path
 
     cmd = [
         'ffmpeg',
@@ -34,15 +35,20 @@ def extract_audio(video_path: Path, outdir: Path, audio_path: Path, sample_rate:
         '-vn',
         str(audio_path),
     ]
-    print('Running ffmpeg:', ' '.join(shlex.quote(c) for c in cmd))
+    print('[extract_audio] Running ffmpeg:', ' '.join(shlex.quote(c) for c in cmd))
     subprocess.run(cmd, check=True)
-    print(f'Extracted audio to: {audio_path}')
+    print(f'[extract_audio] Extracted audio -> {audio_path}')
+    return audio_path
 
 
-def main():
+def main() -> None:  # CLI entry point
     parser = argparse.ArgumentParser(description='Extract audio from video (ffmpeg)')
     parser.add_argument('video', help='Path to video file')
     parser.add_argument('--outdir', default='output', help='Directory to save audio')
-    parser.add_argument('--samplerate', type=int, default=16000, help='Audio sample rate')
+    parser.add_argument('--samplerate', type=int, default=16000, help='Audio sample rate (Hz)')
     args = parser.parse_args()
-    extract_audio(video_path=Path(args.video), outdir=Path(args.outdir), audio_path=None, sample_rate=args.samplerate)
+    extract_audio(video_path=Path(args.video), outdir=Path(args.outdir), sample_rate=args.samplerate)
+
+
+if __name__ == '__main__':
+    main()
