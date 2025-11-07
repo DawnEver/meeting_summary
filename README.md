@@ -1,6 +1,10 @@
 # Meeting Summary (Video → Whisper → Ollama)
 
+🌐 English | [中文 README](README_zh.md)
+
 Lightweight toolkit to convert meeting videos into transcripts and structured Markdown summaries using FFmpeg, Whisper, and a local Ollama model. Provides CLI modules for each stage and a simple Flask web UI for one-click or programmatic pipelines.
+
+> Looking for Chinese documentation? Click the link above or visit `README_zh.md`.
 
 ## Key features
 - End-to-end pipeline: video → audio (FFmpeg) → transcript (Whisper) → summary (Ollama).
