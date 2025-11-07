@@ -96,7 +96,7 @@ def transcribe_audio(
     return transcript_text
 
 
-def main() -> None:
+def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
         description=('Transcribe audio using Whisper. Supported audio formats: ' + ', '.join(sorted(AUDIO_EXTENSIONS)))
     )

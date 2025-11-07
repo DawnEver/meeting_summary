@@ -1,0 +1,2 @@
+tests/test-media/test_audio.mp3 filter=lfs diff=lfs merge=lfs -text
+tests/test-media/test_video.mp4 filter=lfs diff=lfs merge=lfs -text

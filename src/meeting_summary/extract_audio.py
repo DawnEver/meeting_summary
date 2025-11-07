@@ -47,7 +47,7 @@ def extract_audio(video_path: Path, outdir: Path, *, sample_rate: int = 16000) -
     return audio_path
 
 
-def main() -> None:  # CLI entry point
+def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(
         description=f'Extract audio from video (ffmpeg). Supported: {", ".join(sorted(VIDEO_EXTENSIONS))}'
     )

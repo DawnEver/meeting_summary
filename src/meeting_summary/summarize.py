@@ -104,7 +104,7 @@ def summarize_with_ollama(
     save_text(outdir / (stem + '.summary.md'), final_summary)
 
 
-def main():
+def main() -> None:  # pragma: no cover
     parser = argparse.ArgumentParser(description='Generate bilingual summary using Ollama')
     parser.add_argument('transcript', help='Path to transcript text file')
     parser.add_argument('-o', '--outdir', default='output', help='Directory to save outputs')
