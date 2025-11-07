@@ -41,6 +41,10 @@ from werkzeug.utils import secure_filename
 from .extract_audio import extract_audio
 from .summarize import generate_summary_text
 from .transcribe import transcribe_audio
+from .utils import AUDIO_EXTENSIONS, VIDEO_EXTENSIONS
+
+_ALLOWED_VIDEO_EXT = set(VIDEO_EXTENSIONS)
+_ALLOWED_AUDIO_EXT = set(AUDIO_EXTENSIONS)
 
 # ---------------------------------------------------------------------------
 # Paths & app setup
@@ -59,9 +63,6 @@ app = Flask(
     static_url_path='/static',
 )
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB upload cap
-
-_ALLOWED_VIDEO_EXT = {'.mp4', '.mov', '.mkv', '.avi', '.webm', '.m4v'}
-_ALLOWED_AUDIO_EXT = {'.wav'}  # existing pipeline produces wav
 
 
 # ---------------------------------------------------------------------------
@@ -90,14 +91,29 @@ def _audio_file_from_video(video_path: Path) -> Path:
 
 
 def _validate_audio_id(audio_id: str) -> Path:
-    p = (_output_dir / audio_id).resolve()
-    if p.parent != _output_dir:
-        abort(400, description='Invalid audio id path traversal')
-    if not p.exists():
+    """Locate an uploaded or generated audio file by id.
+
+    Historically uploaded audio files were stored under `output/uploads/`, while
+    generated (video ➜ audio) files live directly under `output/`. The original
+    validation only checked the root, causing 404 errors for directly uploaded
+    audio when requesting transcript/SRT downloads.
+
+    This function now searches both locations and returns the existing path.
+    """
+    p_root = (_output_dir / audio_id).resolve()
+    p_upload = (_upload_dir / audio_id).resolve()
+    # Security: ensure resolved parents are expected directories
+    valid_parents = {str(_output_dir.resolve()), str(_upload_dir.resolve())}
+    candidate: Path | None = None
+    if p_root.exists() and str(p_root.parent) in valid_parents:
+        candidate = p_root
+    elif p_upload.exists() and str(p_upload.parent) in valid_parents:
+        candidate = p_upload
+    if candidate is None:
         abort(404, description='Audio file not found')
-    if p.suffix.lower() != '.wav':
-        abort(400, description='Audio id is not a wav file')
-    return p
+    if candidate.suffix.lower() not in _ALLOWED_AUDIO_EXT:
+        abort(400, description='Unsupported audio extension')
+    return candidate
 
 
 # ---------------------------------------------------------------------------

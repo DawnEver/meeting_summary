@@ -3,7 +3,7 @@ from pathlib import Path
 
 import whisper
 
-from .utils import save_text
+from .utils import AUDIO_EXTENSIONS, convert_to_wav, require_ext, save_text
 
 
 def segments_to_srt(segments: list[dict], *, simple_time: bool = False) -> str:
@@ -50,6 +50,8 @@ def transcribe_audio(
     *,
     make_srt: bool = True,
     simple_srt_time: bool = False,
+    auto_convert_wav: bool = False,
+    sample_rate: int = 16000,
 ) -> str:
     """Transcribe an audio file and persist transcript (and optional SRT).
 
@@ -58,6 +60,13 @@ def transcribe_audio(
     if not audio_path.exists():
         msg = f'Audio not found: {audio_path}'
         raise SystemExit(msg)
+
+    # Validate audio extension early
+    require_ext(audio_path, AUDIO_EXTENSIONS, 'audio')
+
+    # Optionally convert to wav (mono) for consistent Whisper ingestion
+    if auto_convert_wav:
+        audio_path = convert_to_wav(audio_path, outdir=outdir, sample_rate=sample_rate)
 
     transcript_path = outdir / (audio_path.stem + '.transcript.txt')
     outdir.mkdir(parents=True, exist_ok=True)
@@ -88,8 +97,10 @@ def transcribe_audio(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description='Transcribe audio using Whisper')
-    parser.add_argument('audio', help='Path to audio file (wav)')
+    parser = argparse.ArgumentParser(
+        description=('Transcribe audio using Whisper. Supported audio formats: ' + ', '.join(sorted(AUDIO_EXTENSIONS)))
+    )
+    parser.add_argument('audio', help='Path to audio file (any supported format)')
     parser.add_argument('--outdir', default='output', help='Directory to save transcript/SRT')
     parser.add_argument('--whisper-model', default='turbo', help='Whisper model name')
     parser.add_argument('--language', default=None, help='Language hint for Whisper (e.g. en, zh)')
@@ -97,6 +108,12 @@ def main() -> None:
     parser.add_argument(
         '--simple-srt-time', action='store_true', help='Use HH:MM:SS (no milliseconds) in SRT timestamps'
     )
+    parser.add_argument(
+        '--auto-convert-wav',
+        action='store_true',
+        help='Convert input audio to mono WAV (16kHz) before transcribing for consistency',
+    )
+    parser.add_argument('--sample-rate', type=int, default=16000, help='Target sample rate when converting to WAV')
     args = parser.parse_args()
 
     audio_path = Path(args.audio)
@@ -108,6 +125,8 @@ def main() -> None:
         language=args.language,
         make_srt=not args.no_srt,
         simple_srt_time=args.simple_srt_time,
+        auto_convert_wav=args.auto_convert_wav,
+        sample_rate=args.sample_rate,
     )
 
 

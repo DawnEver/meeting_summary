@@ -3,12 +3,16 @@ import shlex
 import subprocess
 from pathlib import Path
 
+from .utils import VIDEO_EXTENSIONS, require_ext
+
 
 def extract_audio(video_path: Path, outdir: Path, *, sample_rate: int = 16000) -> Path:
     """Extract audio from a video into a mono WAV file.
 
-    Returns the path to the generated audio file; if it already exists it is reused.
-    Raises SystemExit if the input video is missing or ffmpeg fails (subprocess will raise).
+    Supported video extensions: .utils.VIDEO_EXTENSIONS
+
+    Returns existing output if previously generated.
+    Raises SystemExit if input missing or extension unsupported or ffmpeg fails.
     """
     video = Path(video_path)
     outdir = Path(outdir)
@@ -17,6 +21,8 @@ def extract_audio(video_path: Path, outdir: Path, *, sample_rate: int = 16000) -
     if not video.exists():
         msg = f'Video not found: {video}'
         raise SystemExit(msg)
+    # Validate extension
+    require_ext(video, VIDEO_EXTENSIONS, 'video')
 
     audio_path = outdir / (video.stem + '.wav')
     if audio_path.exists():
@@ -42,7 +48,9 @@ def extract_audio(video_path: Path, outdir: Path, *, sample_rate: int = 16000) -
 
 
 def main() -> None:  # CLI entry point
-    parser = argparse.ArgumentParser(description='Extract audio from video (ffmpeg)')
+    parser = argparse.ArgumentParser(
+        description=f'Extract audio from video (ffmpeg). Supported: {", ".join(sorted(VIDEO_EXTENSIONS))}'
+    )
     parser.add_argument('video', help='Path to video file')
     parser.add_argument('--outdir', default='output', help='Directory to save audio')
     parser.add_argument('--samplerate', type=int, default=16000, help='Audio sample rate (Hz)')

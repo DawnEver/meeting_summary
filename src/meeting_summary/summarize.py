@@ -15,7 +15,7 @@ def build_ollama_prompt(transcript_text: str, extra_prompt: str | None = None) -
     return [
         {
             'role': 'system',
-            'content': 'You are an assistant that reads a meeting transcript and produces concise meeting summary. Respond with valid Markdown format.',
+            'content': 'You are an assistant that reads a transcript and produces concise summary. Respond with valid Markdown format.',
         },
         {'role': 'user', 'content': user_content},
     ]

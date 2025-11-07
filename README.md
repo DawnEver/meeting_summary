@@ -8,6 +8,7 @@ Lightweight toolkit to convert meeting videos into transcripts and structured Ma
 - Optional Whisper language hint and SRT export when segment data is available.
 - Automatic chunking of long transcripts and merge into a single Markdown summary.
 - Outputs placed under a single `output/` directory. Optional Flask web UI with SSE progress.
+ - Broad format support for input media (mainstream video & audio containers/codecs).
 
 <p align="center">
 	<img src="readme-img/en-empty.png" alt="" style="max-width:400px; height:auto; margin:12px 0;" />
@@ -59,6 +60,19 @@ Typical outputs under `output/`:
 - `<stem>.srt` — subtitles (if segment data exists)
 - `<stem>.summary.md` — final Markdown summary from Ollama
 
+### Supported media formats
+
+Video ➜ Audio extraction accepts (containers):
+`mp4, mov, mkv, avi, webm, m4v, flv, 3gp, ts, vob, wmv, mpeg, mpg, m2ts, ogv`
+
+Audio ➜ Transcript accepts:
+`wav, mp3, aac, ogg, flac, m4a, wma, webm (audio-only), opus`
+
+Non-WAV audio can optionally be converted to mono 16kHz WAV before transcription for consistency:
+add `--auto-convert-wav` (CLI) or rely on native Whisper decoding.
+
+To simplify SRT timestamps (drop milliseconds) add `--simple-srt-time`.
+
 ## Run individual stages
 
 Extract audio only:
@@ -69,6 +83,7 @@ python -m meeting_summary.extract_audio path/to/meeting.mp4 -o output --samplera
 Transcribe existing WAV:
 ```bash
 python -m meeting_summary.transcribe path/to/meeting.wav -o output -w turbo -l en
+python -m meeting_summary.transcribe path/to/audio.mp3 -o output -w turbo -l en --auto-convert-wav
 ```
 
 Summarize an existing transcript (with optional chunking and extra prompt):
