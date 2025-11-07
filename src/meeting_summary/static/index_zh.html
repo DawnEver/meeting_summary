@@ -1,194 +1,344 @@
 <!doctype html>
 <html lang="zh">
+
 <head>
     <meta charset="utf-8" />
     <title>会议处理工具 (Video ➜ Audio ➜ Transcript ➜ Summary)</title>
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <script src="/static/marked-loader.js"></script>
-    <script src="/static/dompurify-loader.js"></script>
-    <script defer src="/static/app.js"></script>
+    <script src="/static/marked-loader.js?v=20251107"></script>
+    <script src="/static/dompurify-loader.js?v=20251107"></script>
+    <script defer src="/static/app.js?v=20251107"></script>
     <style>
-        :root { color-scheme: light dark; }
-        body { font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif; margin: 0; padding: 1.5rem; background:#0f172a; color:#e2e8f0; }
-        h1 { margin:0 0 .25rem; font-size:1.75rem; }
-        p.subtitle { margin:.25rem 0 1.25rem; color:#94a3b8; }
-        main { max-width:1100px; margin:0 auto; }
-        section { background:#1e293b; border:1px solid #334155; border-radius:14px; padding:1.25rem 1.25rem 1.6rem; margin-bottom:1.2rem; box-shadow:0 4px 12px -4px rgba(0,0,0,.4); }
-        section h2 { margin-top:0; font-size:1.2rem; letter-spacing:.5px; }
-        label { font-weight:600; margin-top:.75rem; display:block; }
-        input[type=file],input[type=text],input[type=number],select,textarea { width:100%; box-sizing:border-box; background:#0f172a; border:1px solid #475569; color:#e2e8f0; padding:.7rem .8rem; border-radius:10px; font-size:.95rem; }
-        textarea { min-height:170px; resize:vertical; font-family: ui-monospace,Consolas,"Fira Code",monospace; line-height:1.4; }
-        .row { display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end; }
-        button { cursor:pointer; border:none; background:linear-gradient(135deg,#38bdf8,#6366f1); color:#0f172a; font-weight:600; padding:.75rem 1.25rem; border-radius:999px; font-size:.9rem; box-shadow:0 3px 8px -3px rgba(56,189,248,.4); display:inline-flex; align-items:center; gap:.4rem; }
-        button.secondary { background:#334155; color:#e2e8f0; box-shadow:none; }
-        button:active { transform:scale(.97); }
-        .hint { font-size:.7rem; color:#64748b; margin-top:.25rem; }
-        .output, .pill { background:#0f172a; border:1px solid #334155; border-radius:10px; padding:.85rem .9rem; font-size:.85rem; line-height:1.4; white-space:pre-wrap; overflow-wrap:anywhere; }
-        .output { min-height:60px; }
-        .mono { font-family: ui-monospace,Consolas,"Fira Code",monospace; }
-        a { color:#38bdf8; text-decoration:none; }
-        a:hover { text-decoration:underline; }
-        footer { text-align:center; font-size:.7rem; color:#64748b; margin:2rem 0 .5rem; }
-        .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:.75rem; }
-        .lang-switch { display:flex; justify-content:flex-end; gap:.5rem; margin:.25rem 0 1rem; }
-        @media (max-width:760px){ section { padding:1.05rem 1.05rem 1.4rem; } }
+        :root {
+            color-scheme: light dark;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Arial, sans-serif;
+            margin: 0;
+            padding: 1.5rem;
+            background: #0f172a;
+            color: #e2e8f0;
+        }
+
+        h1 {
+            margin: 0 0 .25rem;
+            font-size: 1.75rem;
+        }
+
+        p.subtitle {
+            margin: .25rem 0 1.25rem;
+            color: #94a3b8;
+        }
+
+        main {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        section {
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 14px;
+            padding: 1.25rem 1.25rem 1.6rem;
+            margin-bottom: 1.2rem;
+            box-shadow: 0 4px 12px -4px rgba(0, 0, 0, .4);
+        }
+
+        section h2 {
+            margin-top: 0;
+            font-size: 1.2rem;
+            letter-spacing: .5px;
+        }
+
+        label {
+            font-weight: 600;
+            margin-top: .75rem;
+            display: block;
+        }
+
+        input[type=file],
+        input[type=text],
+        input[type=number],
+        select,
+        textarea {
+            width: 100%;
+            box-sizing: border-box;
+            background: #0f172a;
+            border: 1px solid #475569;
+            color: #e2e8f0;
+            padding: .7rem .8rem;
+            border-radius: 10px;
+            font-size: .95rem;
+        }
+
+        textarea {
+            min-height: 170px;
+            resize: vertical;
+            font-family: ui-monospace, Consolas, "Fira Code", monospace;
+            line-height: 1.4;
+        }
+
+        .row {
+            display: flex;
+            gap: .75rem;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        button {
+            cursor: pointer;
+            border: none;
+            background: linear-gradient(135deg, #38bdf8, #6366f1);
+            color: #0f172a;
+            font-weight: 600;
+            padding: .75rem 1.25rem;
+            border-radius: 999px;
+            font-size: .9rem;
+            box-shadow: 0 3px 8px -3px rgba(56, 189, 248, .4);
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+        button.secondary {
+            background: #334155;
+            color: #e2e8f0;
+            box-shadow: none;
+        }
+
+        button:active {
+            transform: scale(.97);
+        }
+
+        .hint {
+            font-size: .7rem;
+            color: #64748b;
+            margin-top: .25rem;
+        }
+
+        .output,
+        .pill {
+            background: #0f172a;
+            border: 1px solid #334155;
+            border-radius: 10px;
+            padding: .85rem .9rem;
+            font-size: .85rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .output {
+            min-height: 60px;
+        }
+
+        .mono {
+            font-family: ui-monospace, Consolas, "Fira Code", monospace;
+        }
+
+        a {
+            color: #38bdf8;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        footer {
+            text-align: center;
+            font-size: .7rem;
+            color: #64748b;
+            margin: 2rem 0 .5rem;
+        }
+
+        .grid2 {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: .75rem;
+        }
+
+        .lang-switch {
+            display: flex;
+            justify-content: flex-end;
+            gap: .5rem;
+            margin: .25rem 0 1rem;
+        }
+
+        @media (max-width:760px) {
+            section {
+                padding: 1.05rem 1.05rem 1.4rem;
+            }
+        }
     </style>
 </head>
+
 <body>
-<main>
-    <header>
-        <div class="lang-switch">
-            <button class="secondary" id="btnToEN" aria-label="Switch to English UI">English</button>
-        </div>
-        <h1>会议处理工具</h1>
-        <p class="subtitle">三步：视频➜音频(可下载) ➜ 转录 ➜ 总结；支持一键执行。</p>
-    </header>
+    <main>
+        <header>
+            <div class="lang-switch">
+                <button class="secondary" id="btnToEN" aria-label="Switch to English UI">English</button>
+            </div>
+            <h1>会议处理工具</h1>
+            <p class="subtitle">三步：视频➜音频(可下载) ➜ 转录 ➜ 总结；支持一键执行。</p>
+        </header>
 
-    <!-- 1. Video -> Audio -->
-    <section id="sec-video-audio">
-        <h2>① 视频 ➜ 音频</h2>
-        <label>选择视频文件</label>
-        <input type="file" id="videoFile" accept="video/*" />
-        <div class="row">
-            <div style="flex:1; min-width:140px;">
-                <label>（只输出 wav，复用现有流程）</label>
-                <div class="hint">上传后调用服务器 ffmpeg 提取 16k mono wav。</div>
+        <!-- 1. Video -> Audio -->
+        <section id="sec-video-audio">
+            <h2>① 视频 ➜ 音频</h2>
+            <label>选择视频文件</label>
+            <input type="file" id="videoFile" accept="video/*" />
+            <div class="row">
+                <div style="flex:1; min-width:140px;">
+                    <label>（只输出 wav，复用现有流程）</label>
+                    <div class="hint">上传后调用服务器 ffmpeg 提取 16k mono wav。</div>
+                </div>
+                <div style="display:flex; align-items:flex-end; gap:.6rem;">
+                    <button id="btnVideo2Audio">转换为音频</button>
+                </div>
             </div>
-            <div style="display:flex; align-items:flex-end; gap:.6rem;">
-                <button id="btnVideo2Audio">转换为音频</button>
+            <div id="audioResult" class="hint" style="margin-top:.75rem"></div>
+            <div id="audioActions" style="margin-top:.5rem; display:flex; gap:.5rem;">
+                <button class="secondary" id="btnDownloadAudio" style="display:none;">下载 WAV</button>
             </div>
-        </div>
-        <div id="audioResult" class="hint" style="margin-top:.75rem"></div>
-    </section>
+        </section>
 
-    <!-- 2. Audio -> Transcript -->
-    <section id="sec-audio-transcript">
-        <h2>② 音频 ➜ 转录</h2>
-        <label>选择音频文件（或使用上一步 audio_id）</label>
-        <input type="file" id="audioFile" accept=".wav,.mp3,.m4a,.flac,.ogg,.webm,audio/*" />
-        <div class="row">
-            <input type="text" id="audioId" placeholder="可选：填写 audio_id 直接转录" />
-            <button id="btnAudio2Text">转录</button>
-        </div>
-        <label style="margin-top:.7rem">转录结果 Transcript</label>
-        <textarea id="transcript" placeholder="转录文本将在这里显示"></textarea>
-        <div id="transcriptActions" style="margin-top:.5rem; display:flex; gap:.5rem;">
-            <a id="aDownloadTranscript" class="secondary" style="display:none; padding:.5rem .75rem;" download>下载 TXT</a>
-            <a id="aDownloadSRT" class="secondary" style="display:none; padding:.5rem .75rem;" download>下载 SRT</a>
-        </div>
-    </section>
+        <!-- 2. Audio -> Transcript -->
+        <section id="sec-audio-transcript">
+            <h2>② 音频 ➜ 转录</h2>
+            <label>选择音频文件（或使用上一步 audio_id）</label>
+            <input type="file" id="audioFile" accept=".wav,.mp3,.m4a,.flac,.ogg,.webm,audio/*" />
+            <div class="row">
+                <input type="text" id="audioId" placeholder="可选：填写 audio_id 直接转录" />
+                <div style="min-width:200px;">
+                    <label style="margin-top:0;">Whisper 模型</label>
+                    <select id="whisperModelS2"></select>
+                </div>
+                <button id="btnAudio2Text">转录</button>
+            </div>
+            <label style="margin-top:.7rem">转录结果 Transcript</label>
+            <textarea id="transcript" placeholder="转录文本将在这里显示"></textarea>
+            <div id="transcriptActions" style="margin-top:.5rem; display:flex; gap:.5rem;">
+                <button id="btnDownloadTranscript" class="secondary" style="display:none;">下载 TXT</button>
+                <button id="btnDownloadSRT" class="secondary" style="display:none;">下载 SRT</button>
+            </div>
+        </section>
 
-    <!-- 3. Transcript -> Summary -->
-    <section id="sec-transcript-summary">
-        <h2>③ 转录 ➜ 总结</h2>
-        <label>输入或粘贴 Transcript</label>
-        <textarea id="transcriptForSummary" placeholder="可点击下方按钮从②复制"></textarea>
-        <div class="grid2" style="margin-top:.5rem;">
-            <div>
-                <label>Ollama 模型</label>
-                <input type="text" id="model" value="qwen3:30b-a3b" />
+        <!-- 3. Transcript -> Summary -->
+        <section id="sec-transcript-summary">
+            <h2>③ 转录 ➜ 总结</h2>
+            <label>输入或粘贴 Transcript</label>
+            <textarea id="transcriptForSummary" placeholder="可点击下方按钮从②复制"></textarea>
+            <div class="grid2" style="margin-top:.5rem;">
+                <div>
+                    <label>Ollama 模型</label>
+                    <select id="model"></select>
+                </div>
+                <div>
+                    <label>上下文长度 (0=不分块)</label>
+                    <input type="number" id="ctxLen" value="0" min="0" />
+                </div>
+                <div style="grid-column:1/-1;">
+                    <label>额外提示 (可选)</label>
+                    <input type="text" id="extraPrompt" placeholder="例如：请强调决策与待办" />
+                </div>
             </div>
-            <div>
-                <label>上下文长度 (0=不分块)</label>
-                <input type="number" id="ctxLen" value="0" min="0" />
+            <div class="row" style="margin-top:.7rem;">
+                <button id="btnSummarize">生成总结</button>
+                <button class="secondary" id="btnCopyFromS2">从②复制 Transcript</button>
+                <button class="secondary" id="btnCopySummary" style="margin-left:.5rem; display:none;">复制总结</button>
+                <button class="secondary" id="btnDownloadSummary" style="margin-left:.25rem; display:none;">下载
+                    Markdown</button>
             </div>
-            <div style="grid-column:1/-1;">
-                <label>额外提示 (可选)</label>
-                <input type="text" id="extraPrompt" placeholder="例如：请强调决策与待办" />
-            </div>
-        </div>
-        <div class="row" style="margin-top:.7rem;">
-            <button id="btnSummarize">生成总结</button>
-            <button class="secondary" id="btnCopyFromS2">从②复制 Transcript</button>
-            <button class="secondary" id="btnCopySummary" style="margin-left:.5rem;">复制总结</button>
-            <button class="secondary" id="btnDownloadSummary" style="margin-left:.25rem;">下载 Markdown</button>
-        </div>
-        <label style="margin-top:.75rem">Summary 输出</label>
-        <div id="summary" class="output"></div>
-    </section>
+            <label style="margin-top:.75rem">Summary 输出</label>
+            <div id="summary" class="output"></div>
+        </section>
 
-    <!-- One-click pipeline -->
-    <section id="sec-pipeline">
-        <h2>一键：视频 ➜ 总结</h2>
-        <label>选择视频文件</label>
-        <input type="file" id="videoAll" accept="video/*" />
-        <div class="grid2" style="margin-top:.6rem;">
-            <div>
-                <label>Whisper 模型</label>
-                <input type="text" id="whisperModelAll" value="turbo" />
+        <!-- One-click pipeline -->
+        <section id="sec-pipeline">
+            <h2>一键：视频 ➜ 总结</h2>
+            <label>选择视频文件</label>
+            <input type="file" id="videoAll" accept="video/*" />
+            <div class="grid2" style="margin-top:.6rem;">
+                <div>
+                    <label>Whisper 模型</label>
+                    <select id="whisperModelAll"></select>
+                </div>
+                <div>
+                    <label>Ollama 模型</label>
+                    <select id="modelAll"></select>
+                </div>
+                <div>
+                    <label>上下文长度 (0=不分块)</label>
+                    <input type="number" id="ctxLenAll" value="0" min="0" />
+                </div>
+                <div style="grid-column:1/-1;">
+                    <label>额外提示</label>
+                    <input type="text" id="extraPromptAll" placeholder="例如：请按主题分段" />
+                </div>
             </div>
-            <div>
-                <label>Ollama 模型</label>
-                <input type="text" id="modelAll" value="qwen3:30b-a3b" />
-            </div>
-            <div>
-                <label>上下文长度 (0=不分块)</label>
-                <input type="number" id="ctxLenAll" value="0" min="0" />
-            </div>
-            <div style="grid-column:1/-1;">
-                <label>额外提示</label>
-                <input type="text" id="extraPromptAll" placeholder="例如：请按主题分段" />
-            </div>
-        </div>
             <div class="row" style="margin-top:.8rem; gap:.5rem;">
                 <button class="Primary" id="btnOneClickStream">一键执行</button>
             </div>
-        <div id="pipelineAudioLink" class="hint" style="margin-top:.6rem"></div>
-        <div id="pipelineDownloadLinks" style="margin-top:.5rem; display:flex; gap:.5rem;"></div>
+            <div id="pipelineAudioLink" class="hint" style="margin-top:.6rem"></div>
+            <div id="pipelineDownloadLinks" style="margin-top:.5rem; display:flex; gap:.5rem;"></div>
             <div id="pipelineLog" class="output" style="margin-top:.6rem; min-height: 40px;"></div>
-        <label style="margin-top:.6rem">一键生成 Transcript</label>
-        <div id="pipelineTranscript" class="output"></div>
-        <div style="margin-top:.4rem; display:flex; gap:.5rem;">
-            <button class="secondary" id="btnCopyPipelineSummary">复制总结</button>
-            <button class="secondary" id="btnDownloadPipelineSummary">下载 Markdown</button>
-        </div>
-        <label style="margin-top:.6rem">一键生成 Summary</label>
-        <div id="pipelineSummary" class="output"></div>
-    </section>
-  <footer>包铭阳 | mingyangbob@gmail.com <br/> <a href="https://github.com/DawnEver/meeting_summary">github.com/DawnEver/meeting_summary</a></footer>
+            <label style="margin-top:.6rem">一键生成 Transcript</label>
+            <div id="pipelineTranscript" class="output"></div>
+            <div style="margin-top:.4rem; display:flex; gap:.5rem;">
+                <button class="secondary" id="btnCopyPipelineSummary" style="display:none;">复制总结</button>
+                <button class="secondary" id="btnDownloadPipelineSummary" style="display:none;">下载 Markdown</button>
+            </div>
+            <label style="margin-top:.6rem">一键生成 Summary</label>
+            <div id="pipelineSummary" class="output"></div>
+        </section>
+        <footer>包铭阳 | mingyangbob@gmail.com <br /> <a
+                href="https://github.com/DawnEver/meeting_summary">github.com/DawnEver/meeting_summary</a></footer>
 
-</main>
+    </main>
 
-<script>
-// Language toggle + localized strings + init shared script
-(function(){
-    try { localStorage.setItem('lang','zh'); } catch(_) {}
-    const btn = document.getElementById('btnToEN');
-    if (btn) btn.addEventListener('click', () => {
-        try { localStorage.setItem('lang','en'); } catch(_) {}
-        const url = new URL(window.location.origin + '/');
-        url.searchParams.set('lang','en');
-        window.location.href = url.toString();
-    });
-    const strings = {
-        alertChooseVideo: '请选择视频文件',
-        convertingText: '正在转换...',
-        audioIdLabel: 'audio_id',
-        downloadLabel: '下载音频',
-        errorPrefix: '错误:',
-        chooseAudioOrIdAlert: '选择音频文件或填写 audio_id',
-        transcribingText: '正在转录...',
-        transcriptEmptyAlert: 'Transcript 不能为空',
-        summarizingText: '生成中...',
-        startingText: '启动中...',
-        jobStartedPrefix: '[info] Job started:',
-        connectionLostText: '连接中断'
-    };
-    document.addEventListener('DOMContentLoaded', function(){
-        if (window.initMeetingApp && window.initMeetingApp.initApp) {
-            window.initMeetingApp.initApp(strings);
-            return;
-        }
-        // fallback: poll briefly in case app.js is still loading
-        let tries = 0;
-        const t = setInterval(()=>{
-            if (window.initMeetingApp && window.initMeetingApp.initApp) {
-                clearInterval(t);
-                window.initMeetingApp.initApp(strings);
-            } else if (++tries > 40) { clearInterval(t); }
-        }, 100);
-    });
-})();
-</script>
+    <script>
+        // Language toggle + localized strings + init shared script
+        (function () {
+            try { localStorage.setItem('lang', 'zh'); } catch (_) { }
+            const btn = document.getElementById('btnToEN');
+            if (btn) btn.addEventListener('click', () => {
+                try { localStorage.setItem('lang', 'en'); } catch (_) { }
+                const url = new URL(window.location.origin + '/');
+                url.searchParams.set('lang', 'en');
+                window.location.href = url.toString();
+            });
+            const strings = {
+                alertChooseVideo: '请选择视频文件',
+                convertingText: '正在转换...',
+                audioIdLabel: 'audio_id',
+                downloadLabel: '下载音频',
+                errorPrefix: '错误:',
+                chooseAudioOrIdAlert: '选择音频文件或填写 audio_id',
+                transcribingText: '正在转录...',
+                transcriptEmptyAlert: 'Transcript 不能为空',
+                summarizingText: '生成中...',
+                startingText: '启动中...',
+                jobStartedPrefix: '[info] Job started:',
+                connectionLostText: '连接中断'
+            };
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.initMeetingApp && window.initMeetingApp.initApp) {
+                    window.initMeetingApp.initApp(strings);
+                    return;
+                }
+                // fallback: poll briefly in case app.js is still loading
+                let tries = 0;
+                const t = setInterval(() => {
+                    if (window.initMeetingApp && window.initMeetingApp.initApp) {
+                        clearInterval(t);
+                        window.initMeetingApp.initApp(strings);
+                    } else if (++tries > 40) { clearInterval(t); }
+                }, 100);
+            });
+        })();
+    </script>
 </body>
+
 </html>

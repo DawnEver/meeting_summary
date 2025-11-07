@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import json
 import mimetypes
+import shutil
+import subprocess
 import threading
 import time
 import uuid
@@ -114,6 +116,52 @@ def _validate_audio_id(audio_id: str) -> Path:
     if candidate.suffix.lower() not in _ALLOWED_AUDIO_EXT:
         abort(400, description='Unsupported audio extension')
     return candidate
+
+
+def _list_ollama_models() -> list[str]:
+    """Return a list of locally available Ollama model names.
+
+    Tries `ollama list --format json` first; falls back to parsing the table output.
+    Returns an empty list if `ollama` is not available or errors occur.
+    """
+    try:
+        ollama_path = shutil.which('ollama')
+        if not ollama_path:
+            return []
+        # Prefer JSON output (ollama 0.3.12+)
+        r = subprocess.run([ollama_path, 'list', '--format', 'json'], capture_output=True, text=True, check=False)
+        if r.returncode == 0 and r.stdout.strip():
+            try:
+                data = json.loads(r.stdout)
+                # data can be a list of objects with 'name' keys
+                names = []
+                if isinstance(data, list):
+                    for item in data:
+                        name = (item.get('name') if isinstance(item, dict) else None) or None
+                        if name:
+                            names.append(str(name))
+                return names
+            except Exception:
+                print("Failed to parse JSON output from 'ollama list --format json'")
+
+        # Fallback: parse tabular output
+
+        r2 = subprocess.run([ollama_path, 'list'], capture_output=True, text=True, check=False)
+        if r2.returncode != 0 or not r2.stdout:
+            return []
+        lines = [ln.strip() for ln in r2.stdout.splitlines() if ln.strip()]
+        # Skip header if present (NAME ID SIZE MODIFIED)
+        if lines and lines[0].lower().startswith('name'):
+            lines = lines[1:]
+        names = []
+        for ln in lines:
+            # name is first column (split by whitespace)
+            parts = ln.split()
+            if parts:
+                names.append(parts[0])
+        return names
+    except Exception:
+        return []
 
 
 # ---------------------------------------------------------------------------
@@ -357,8 +405,20 @@ def audio_to_transcript():  # type: ignore[override]
             abort(400, description='Provide audio file or audio_id')
         audio_path = _validate_audio_id(audio_id)
 
+    # read whisper_model from form/json if provided
+    whisper_model = None
+    if request.form:
+        whisper_model = request.form.get('whisper_model')
+    if not whisper_model and request.is_json:
+        whisper_model = (request.json or {}).get('whisper_model')
+    whisper_model = whisper_model or 'turbo'
     try:
-        transcript = transcribe_audio(audio_path=audio_path, outdir=_output_dir, whisper_model='turbo', language=None)
+        transcript = transcribe_audio(
+            audio_path=audio_path,
+            outdir=_output_dir,
+            whisper_model=whisper_model,
+            language=None,
+        )
     except Exception as e:
         abort(502, description=f'Transcription failed: {e}')
     # Build download URLs for transcript and srt (if file exists)
@@ -372,6 +432,12 @@ def audio_to_transcript():  # type: ignore[override]
         'download_srt_url': f'/api/download/srt/{audio_path.name}' if srt_path.exists() else None,
     }
     return jsonify(resp)
+
+
+@app.get('/api/models/ollama')
+def api_models_ollama():  # type: ignore[override]
+    models = _list_ollama_models()
+    return jsonify({'models': models})
 
 
 @app.post('/api/summarize')
